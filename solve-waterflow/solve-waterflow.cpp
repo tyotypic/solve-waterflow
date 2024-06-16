@@ -487,15 +487,16 @@ std::vector<solution> game_state::work_out_all_solutions(game_state& given_state
 			}
 			else
 			{
-				//if (board_stack.size() >= 80)
-				//{
-				//	// if i comment out this if block, i dont' leak possible moves
-				//	// 
-				//	// I am not interested in solutions this long
-				//	state_to_examine.possible_moves.clear();
-				//	break;
-				//}
-				//else
+				if (possible_solution.size() >= 80)
+				{
+					// board_stack should be exactly the same size;
+
+					// I am not interested in solutions this long
+					possible_solution.pop_back(); // no thank you sir
+					state_to_examine.possible_moves.clear();
+					break;
+				}
+				else
 				{
 					board_stack.push(new_board);
 					break; // we stop examining the moves of this board and start examining the new board
