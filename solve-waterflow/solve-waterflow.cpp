@@ -5,6 +5,7 @@
 #include <format>
 #include <sstream>
 #include <set>
+#include <stack>
 
 #include <windows.h>
 
@@ -97,7 +98,7 @@ public:
 	{}
 	coord position {};
 	colour colour {empty};
-	void exchange_colours_with(piece& other) {std::swap(this->colour, other.colour);}
+	void exchange_colours_with(piece& other) { std::swap(this->colour, other.colour); }
 };
 
 class move
@@ -110,11 +111,10 @@ public:
 	{}
 	std::ostream& display(std::ostream& dest) const
 	{
-		dest << std::format("[{} -> {} : {}]", from.tube_index, to.tube_index, move_size);
+		dest << std::format("[{} -> {} : {}]", from.tube_index + 1, to.tube_index + 1, move_size); // they are 0 indexed, but it's easier to read them as 1 indexed.
 		return dest;
 	}
 };
-
 
 std::ostream& operator<<(std::ostream& out, const move& move)
 {
@@ -132,7 +132,7 @@ public:
 		dest << "{";
 		for (int i {0}; i < moves.size(); i++)
 		{
-			dest << i << ": " << moves[i];
+			dest << i + 1 << ": " << moves[i]; // easier to read them as 1 indexed
 			if (i != moves.size() - 1)
 			{
 				dest << ", ";
@@ -293,6 +293,8 @@ std::ostream& operator<<(std::ostream& out, const test_tube& tube)
 class game_state
 {
 public:
+	std::vector<move> possible_moves;
+	bool moves_have_been_generated {false};
 	std::vector<test_tube> test_tubes;
 	game_state(std::vector<std::vector<colour>> tubes)
 	{
@@ -321,28 +323,13 @@ public:
 
 		return dest;
 	}
-	bool examine_game_state(std::set<std::string>& examined_boards, std::vector<move>& solution, game_state state_to_examine);
-	
-	solution work_out_solution(game_state given_state)
-	{
-		std::vector<move> solution;
-		std::set<std::string> examined_boards;
+	bool recursively_examine_game_state(std::set<std::string>& examined_boards, std::vector<move>& solution, game_state state_to_examine);
 
-		if (examine_game_state(examined_boards, solution, given_state))
-		{
-			std::reverse(solution.begin(), solution.end());
-			std::cout << solution;
-		}
-		else
-		{
-			std::cout << "no solution";
-		}
-
-		std::cout << std::endl;
-
-		return solution;
-	}
+	static std::vector<solution> work_out_all_solutions(game_state& given_state);
 private:
+	game_state(const std::vector<test_tube>& test_tubes, size_t count_of_initial_empty_tubes) :
+		test_tubes {test_tubes}, count_of_initial_empty_tubes {count_of_initial_empty_tubes}
+	{}
 	bool is_finished {false};
 	size_t count_of_initial_empty_tubes {0};
 	std::vector<game_state> generate_possible_next_boards(std::vector<move> moves)
@@ -354,9 +341,12 @@ private:
 		}
 		return next_boards;
 	}
-	std::vector<move> generate_possible_moves()
+	void generate_possible_moves()
 	{
-		std::vector<move> possible_moves;
+		if (moves_have_been_generated)
+		{
+			throw std::runtime_error("moves have already been generated");
+		}
 
 		int finished_tubes {0};
 		for (auto& potential_source : test_tubes)
@@ -386,11 +376,12 @@ private:
 				}
 			}
 		}
-		return possible_moves;
+
+		moves_have_been_generated = true;
 	}
 	game_state generate_new_board_from_move(move m)
 	{
-		game_state new_board {*this};
+		game_state new_board {this->test_tubes, this->count_of_initial_empty_tubes};
 		new_board.apply_move(m);
 		return new_board;
 	}
@@ -428,30 +419,116 @@ std::ostream& operator<<(std::ostream& out, const game_state& state)
 	return state.display(out);
 }
 
-bool game_state::examine_game_state(std::set<std::string>& examined_boards, std::vector<move>& solution, game_state state_to_examine)
+bool game_state_has_already_been_examined(std::set<std::string>& examined_boards, game_state& game_state)
 {
 	std::ostringstream oss;
-	oss << state_to_examine;
+	oss << game_state;
 	if (examined_boards.contains(oss.str()))
 	{
-		return false;
+		return true;
 	}
 	else
 	{
 		examined_boards.insert(oss.str());
+		return false;
+	}
+}
+
+std::vector<solution> game_state::work_out_all_solutions(game_state& given_state)
+{
+	std::vector<solution> solutions;
+	std::vector<move> possible_solution;
+	std::set<std::string> examined_boards;
+	std::stack<game_state> board_stack;
+
+	given_state.generate_possible_moves();
+	if (given_state.is_finished)
+	{
+		throw std::runtime_error("this state is already solved");
 	}
 
-	auto moves {state_to_examine.generate_possible_moves()};
+	static_cast<void>(game_state_has_already_been_examined(examined_boards, given_state));
+	board_stack.push(given_state);
+
+	// todo 2: limit the max length of solution we're after, jeez
+
+	while (!board_stack.empty())
+	{
+		auto& state_to_examine {board_stack.top()};
+		while (!state_to_examine.possible_moves.empty())
+		{
+			auto move_to_examine {state_to_examine.possible_moves.back()}; // arbitrarily choose the last one
+			possible_solution.push_back(move_to_examine); // the move stays in the possible solution until all of its children have been examined.
+			state_to_examine.possible_moves.pop_back(); // take the move off the game_state so it's not examined again.
+
+			auto new_board {state_to_examine.generate_new_board_from_move(move_to_examine)};
+			new_board.generate_possible_moves();
+			if (new_board.is_finished)
+			{
+				solutions.push_back(possible_solution);
+				possible_solution.pop_back(); // take the winning move off the list because we're looking for all solutions
+			}
+			else if (new_board.possible_moves.size() == 0)
+			{
+				// this board has no possible moves, and it's not finished, it's a loser.
+				possible_solution.pop_back(); // the move that got us here lead to a dead end.
+			}
+			else if (game_state_has_already_been_examined(examined_boards, new_board))
+			{
+				// if we execute this check before checking whether the state is finished, 
+				// we exclude all solutions that end in a duplicate end state. That's bad because
+				// we would only record the first path to that end state, possibly missing shorter paths.
+
+				// if we execute this check after the check for 0 moves, we save ourselves the time of
+				// serialising the game_board and the memory of saving it away (which is larger than i expected).
+				// this check is really to stop us cycling endlessly between the same game states.
+
+				possible_solution.pop_back(); // this is not the droid we're looking for
+			}
+			else
+			{
+				//if (board_stack.size() >= 80)
+				//{
+				//	// if i comment out this if block, i dont' leak possible moves
+				//	// 
+				//	// I am not interested in solutions this long
+				//	state_to_examine.possible_moves.clear();
+				//	break;
+				//}
+				//else
+				{
+					board_stack.push(new_board);
+					break; // we stop examining the moves of this board and start examining the new board
+				}
+			}
+		}
+		if (state_to_examine.possible_moves.empty())
+		{
+			board_stack.pop();
+			possible_solution.pop_back(); // if we've finished with a board, we've finished with the move that lead to it
+		}
+	}
+	return solutions;
+}
+
+bool game_state::recursively_examine_game_state(std::set<std::string>& examined_boards, std::vector<move>& solution, game_state state_to_examine)
+{
+	if (game_state_has_already_been_examined(examined_boards, state_to_examine))
+	{
+		return false;
+	}
+
+	state_to_examine.generate_possible_moves();
 	if (state_to_examine.is_finished)
 	{
 		return true;
 	}
 	else
 	{
-		for (const auto& move : moves)
+		for (const auto& move : state_to_examine.possible_moves)
 		{
 			auto new_state {state_to_examine.generate_new_board_from_move(move)};
-			if (examine_game_state(examined_boards, solution, new_state))
+			if (recursively_examine_game_state(examined_boards, solution, new_state))
 			{
 				solution.push_back(move);
 				return true;
@@ -459,6 +536,38 @@ bool game_state::examine_game_state(std::set<std::string>& examined_boards, std:
 		}
 		return false;
 	}
+}
+
+solution& work_out_best_solution(std::vector<solution>& solutions)
+{
+	size_t index_of_best_solution {};
+	size_t shortest_solution_length_so_far {};
+	for (size_t i {0}; i < solutions.size(); i++)
+	{
+		if (i == 0)
+		{
+			shortest_solution_length_so_far = solutions[i].moves.size();
+			index_of_best_solution = i;
+		}
+		else
+		{
+			auto this_solution_length {solutions[i].moves.size()};
+			if (this_solution_length < shortest_solution_length_so_far)
+			{
+				shortest_solution_length_so_far = this_solution_length;
+				index_of_best_solution = i;
+			}
+		}
+	}
+	return solutions[index_of_best_solution];
+}
+
+void report_best_solution(std::vector<solution> solutions)
+{
+	auto& best_solution {work_out_best_solution(solutions)};
+
+	std::cout << "found " << solutions.size() << " solutions. The shortest is: " << std::endl;
+	std::cout << best_solution;
 }
 
 void do_the_thing()
@@ -478,8 +587,17 @@ void do_the_thing()
 	{empty, empty, empty, empty}
 	}};
 
-	auto solution {g.work_out_solution(g)};
-	//std::cout << solution << std::endl;
+	auto solutions {game_state::work_out_all_solutions(g)};
+	if (solutions.empty())
+	{
+		std::cout << "didn't find a solution";
+	}
+	else
+	{
+		auto& solution {work_out_best_solution(solutions)};
+		std::cout << solution;
+	}
+	std::cout << std::endl;
 }
 
 namespace tests
@@ -709,16 +827,22 @@ void test_generate_possible_moves()
 
 void test_work_out_solution()
 {
-	game_state g 
+	game_state g
 	{{
 	{yellow, empty},
 	{yellow, empty}
 	}};
-	g.work_out_solution(g);
-}
 
-void test_apply_move()
-{
+	auto solutions {game_state::work_out_all_solutions(g)};
+	if (solutions.empty())
+	{
+		std::cout << "didn't find a solution";
+	}
+	else
+	{
+		report_best_solution(solutions);
+	}
+	std::cout << std::endl;
 }
 
 }
@@ -730,7 +854,6 @@ int main()
 	tests::test_tube_display();
 	tests::test_generate_possible_moves();
 	//tests::test_work_out_solution();
-	//tests::test_apply_move();
 
 	do_the_thing();
 	return 0;
