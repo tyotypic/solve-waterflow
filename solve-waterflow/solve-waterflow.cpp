@@ -4,7 +4,7 @@
 #include <string>
 #include <format>
 #include <sstream>
-#include <set>
+#include <map>
 #include <stack>
 #include <algorithm>
 
@@ -336,7 +336,7 @@ public:
 
 		return dest;
 	}
-	bool recursively_examine_game_state(std::set<std::string>& examined_boards, std::vector<move>& solution, game_state state_to_examine);
+	bool recursively_examine_game_state(std::map<std::string, size_t>& examined_boards, std::vector<move>& solution, game_state state_to_examine);
 
 	static std::vector<solution> work_out_all_solutions(game_state& given_state);
 private:
@@ -432,17 +432,26 @@ std::ostream& operator<<(std::ostream& out, const game_state& state)
 	return state.display(out);
 }
 
-bool game_state_has_already_been_examined(std::set<std::string>& examined_boards, game_state& game_state)
+bool game_state_has_already_been_examined(std::map<std::string, size_t>& examined_boards, game_state& game_state, size_t length_of_path_to_state)
 {
 	std::ostringstream oss;
 	oss << game_state;
-	if (examined_boards.contains(oss.str()))
+	auto key {examined_boards.find(oss.str())};
+	if (key != examined_boards.end())
 	{
-		return true;
+		if (length_of_path_to_state < key->second)
+		{
+			key->second = length_of_path_to_state;
+			return false;
+		}
+		else
+		{
+			return true;
+		}
 	}
 	else
 	{
-		examined_boards.insert(oss.str());
+		examined_boards[oss.str()] = length_of_path_to_state;
 		return false;
 	}
 }
@@ -451,7 +460,7 @@ std::vector<solution> game_state::work_out_all_solutions(game_state& given_state
 {
 	std::vector<solution> solutions;
 	std::vector<move> possible_solution;
-	std::set<std::string> examined_boards;
+	std::map<std::string, size_t> examined_boards;
 	std::stack<game_state> board_stack;
 
 	given_state.generate_possible_moves();
@@ -460,7 +469,7 @@ std::vector<solution> game_state::work_out_all_solutions(game_state& given_state
 		throw std::runtime_error("this state is already solved");
 	}
 
-	static_cast<void>(game_state_has_already_been_examined(examined_boards, given_state));
+	static_cast<void>(game_state_has_already_been_examined(examined_boards, given_state, possible_solution.size()));
 	board_stack.push(given_state);
 
 	// todo 2: limit the max length of solution we're after, jeez
@@ -487,8 +496,16 @@ std::vector<solution> game_state::work_out_all_solutions(game_state& given_state
 				// this board has no possible moves, and it's not finished, it's a loser.
 				//possible_solution.pop_back(); // the move that got us here lead to a dead end.
 			}
-			else if (game_state_has_already_been_examined(examined_boards, new_board))
+			else if (game_state_has_already_been_examined(examined_boards, new_board, possible_solution.size() + 1))
 			{
+				// the problem here is that we might take a circuitous route to get to a state, when further along our examininations,
+				// we might have found a more direct route to the same state. This problem will be unnecessarily culling shorter solutions.
+				// I can think of a couple of options here:
+				// 1. get rid of this check and let the max solution length check take care of situations where we cycle back to the same state,
+				// this seems unsatisfactory, or
+				// 2. maybe make a std::map<std::string, size_t> to hold both the examined state and the shortest route to it we've seen.
+				// then, if we have examined the state before but our current path to it is shorter, we can consider it.
+
 				// if we execute this check before checking whether the state is finished, 
 				// we exclude all solutions that end in a duplicate end state. That's bad because
 				// we would only record the first path to that end state, possibly missing shorter paths.
@@ -533,32 +550,32 @@ std::vector<solution> game_state::work_out_all_solutions(game_state& given_state
 	return solutions;
 }
 
-bool game_state::recursively_examine_game_state(std::set<std::string>& examined_boards, std::vector<move>& solution, game_state state_to_examine)
-{
-	if (game_state_has_already_been_examined(examined_boards, state_to_examine))
-	{
-		return false;
-	}
-
-	state_to_examine.generate_possible_moves();
-	if (state_to_examine.is_finished)
-	{
-		return true;
-	}
-	else
-	{
-		for (const auto& move : state_to_examine.possible_moves)
-		{
-			auto new_state {state_to_examine.generate_new_board_from_move(move)};
-			if (recursively_examine_game_state(examined_boards, solution, new_state))
-			{
-				solution.push_back(move);
-				return true;
-			}
-		}
-		return false;
-	}
-}
+//bool game_state::recursively_examine_game_state(std::map<std::string, size_t>& examined_boards, std::vector<move>& solution, game_state state_to_examine)
+//{
+//	if (game_state_has_already_been_examined(examined_boards, state_to_examine, ))
+//	{
+//		return false;
+//	}
+//
+//	state_to_examine.generate_possible_moves();
+//	if (state_to_examine.is_finished)
+//	{
+//		return true;
+//	}
+//	else
+//	{
+//		for (const auto& move : state_to_examine.possible_moves)
+//		{
+//			auto new_state {state_to_examine.generate_new_board_from_move(move)};
+//			if (recursively_examine_game_state(examined_boards, solution, new_state))
+//			{
+//				solution.push_back(move);
+//				return true;
+//			}
+//		}
+//		return false;
+//	}
+//}
 
 solution& work_out_best_solution(std::vector<solution>& solutions)
 {
@@ -865,7 +882,7 @@ void test_work_out_all_solutions_1()
 	{
 		::DebugBreak();
 	}
-	
+
 	auto found_solution_2 {std::find(solutions.begin(), solutions.end(), solution_2)};
 	if (*found_solution_2 != solution_2)
 	{
@@ -896,7 +913,7 @@ void test_work_out_all_solutions_2()
 	{
 		::DebugBreak();
 	}
-	
+
 	auto found_solution_2 {std::find(solutions.begin(), solutions.end(), solution_2)};
 	if (*found_solution_2 != solution_2)
 	{
@@ -984,6 +1001,52 @@ void test_work_out_all_solutions()
 	test_work_out_all_solutions_4();
 }
 
+void test_game_state_has_already_been_examined()
+{
+	game_state g
+	{{
+	{magenta, orange, light_green},
+	{orange, light_green, orange},
+	{light_green, magenta, magenta},
+	{empty, empty, empty}
+	}};
+
+	std::map<std::string, size_t> examined_boards;
+
+	if (game_state_has_already_been_examined(examined_boards, g, 10)) // first time we've seen it
+	{
+		::DebugBreak();
+	}
+
+	if (!game_state_has_already_been_examined(examined_boards, g, 10)) // the state has the same depth
+	{
+		::DebugBreak();
+	}
+
+	if (!game_state_has_already_been_examined(examined_boards, g, 11)) // the path to the state is worse
+	{
+		::DebugBreak();
+	}
+
+	if (game_state_has_already_been_examined(examined_boards, g, 9)) // the path to the state is shorter
+	{
+		::DebugBreak();
+	}
+
+	game_state g2
+	{{
+	{magenta, orange, light_green},
+	{orange, light_green, orange},
+	{light_green, magenta, pink},
+	{empty, empty, empty}
+	}};
+
+	if (game_state_has_already_been_examined(examined_boards, g2, 0)) // first time
+	{
+		::DebugBreak();
+	}
+}
+
 }
 
 int main()
@@ -992,6 +1055,7 @@ int main()
 	tests::test_pouring_colour();
 	tests::test_tube_display();
 	tests::test_generate_possible_moves();
+	tests::test_game_state_has_already_been_examined();
 	tests::test_work_out_all_solutions();
 
 	//do_the_thing();
