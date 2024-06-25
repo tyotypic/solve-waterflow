@@ -336,7 +336,6 @@ public:
 
 		return dest;
 	}
-	bool recursively_examine_game_state(std::map<std::string, size_t>& examined_boards, std::vector<move>& solution, game_state state_to_examine);
 
 	static std::vector<solution> work_out_all_solutions(game_state& given_state);
 private:
@@ -476,6 +475,7 @@ std::vector<solution> game_state::work_out_all_solutions(game_state& given_state
 
 	while (!board_stack.empty())
 	{
+		bool still_require_this_state {false};
 		auto& state_to_examine {board_stack.top()};
 		while (!state_to_examine.possible_moves.empty())
 		{
@@ -490,6 +490,9 @@ std::vector<solution> game_state::work_out_all_solutions(game_state& given_state
 				possible_solution.push_back(move_to_examine); // add the move to get to the solution so we can copy it off
 				solutions.push_back(possible_solution);
 				possible_solution.pop_back(); // we're looking for all solutions, so take the winning move back off the list because we want to continue on our search.
+
+				// since this is a depth first search, if state_to_examine can generate any other solutions, they must be at least as long as this one or longer.
+				// we *could* just skip to the next board... (maybe later... for now, that would break the find_all_solutions tests which I'm currently using)
 			}
 			else if (new_board.possible_moves.size() == 0)
 			{
@@ -518,23 +521,26 @@ std::vector<solution> game_state::work_out_all_solutions(game_state& given_state
 			}
 			else
 			{
-				if (possible_solution.size() >= 80) // no thank you sir
+				if (possible_solution.size() >= 50) // no thank you sir
 				{
-					// board_stack should be exactly the same size;
 
 					// I am not interested in solutions this long
 					state_to_examine.possible_moves.clear(); // and the horse you rode in on
-					break;
 				}
 				else
 				{
 					possible_solution.push_back(move_to_examine);
 					board_stack.push(new_board);
+
+					// if state_to_examine has no more moves (because we were the last examined), 
+					// we must be careful to not immediately pop the board we just pushed.
+					still_require_this_state = true;
+
 					break; // we stop examining the moves of this board and start examining the new board
 				}
 			}
 		}
-		if (state_to_examine.possible_moves.empty())
+		if (state_to_examine.possible_moves.empty() && !still_require_this_state)
 		{
 			board_stack.pop();
 			if (!board_stack.empty())
@@ -549,33 +555,6 @@ std::vector<solution> game_state::work_out_all_solutions(game_state& given_state
 	}
 	return solutions;
 }
-
-//bool game_state::recursively_examine_game_state(std::map<std::string, size_t>& examined_boards, std::vector<move>& solution, game_state state_to_examine)
-//{
-//	if (game_state_has_already_been_examined(examined_boards, state_to_examine, ))
-//	{
-//		return false;
-//	}
-//
-//	state_to_examine.generate_possible_moves();
-//	if (state_to_examine.is_finished)
-//	{
-//		return true;
-//	}
-//	else
-//	{
-//		for (const auto& move : state_to_examine.possible_moves)
-//		{
-//			auto new_state {state_to_examine.generate_new_board_from_move(move)};
-//			if (recursively_examine_game_state(examined_boards, solution, new_state))
-//			{
-//				solution.push_back(move);
-//				return true;
-//			}
-//		}
-//		return false;
-//	}
-//}
 
 solution& work_out_best_solution(std::vector<solution>& solutions)
 {
@@ -1051,13 +1030,15 @@ void test_game_state_has_already_been_examined()
 
 int main()
 {
-	tests::test_get_colour_and_depth();
+	/*tests::test_get_colour_and_depth();
 	tests::test_pouring_colour();
 	tests::test_tube_display();
 	tests::test_generate_possible_moves();
 	tests::test_game_state_has_already_been_examined();
-	tests::test_work_out_all_solutions();
+	tests::test_work_out_all_solutions();*/
 
-	//do_the_thing();
+	//tests::test_work_out_all_solutions_4();
+
+	do_the_thing();
 	return 0;
 }
