@@ -455,6 +455,17 @@ bool game_state_has_already_been_examined(std::map<std::string, size_t>& examine
 	}
 }
 
+// ok new plan
+// we're going to take all shortest solutions
+// 
+// - the stack size check needs to be when we start examining a state, and needs to not exclude states that are finished (just so we can get solutions of equal length)
+// - when we find a new shorter solution, we're going to delete all solutions longer than it (the solution list gets stupidly large)
+// - the has_been_examined check will now accept less than or equal to states, to accept duplicate equally short solutions -- actually scratch this, it's stupid
+// - once we find a solution, we'll examine the rest of its moves, but only to that next step, as any solutions generated from that point must be equal or greater than, and we only want those who are equal.
+// - we won't even examine moves that lead to a longer solution than the shortest solution we already have, we know this, because it's the size of the stack
+// I still have no idea how to limit the absolutely ludicrous size of the examined_boards collection. The new rules may help, but they aren't a guarantee.
+// Yes, I could encode the board differently, but then it would be difficult to read... But I'm pretty sure I saw 11 million entries the other day, which is stupid.
+
 std::vector<solution> game_state::work_out_all_solutions(game_state& given_state)
 {
 	std::vector<solution> solutions;
