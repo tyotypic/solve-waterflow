@@ -498,7 +498,7 @@ bool game_state_has_already_been_examined(std::map<std::string, size_t>& examine
 
 std::vector<solution> game_state::work_out_all_solutions(game_state& given_state)
 {
-	constexpr size_t user_defined_max_solution_length {60};
+	constexpr size_t user_defined_max_solution_length {46};
 	size_t length_of_shortest_solution_so_far {user_defined_max_solution_length};
 
 	std::vector<solution> solutions;
@@ -519,8 +519,16 @@ std::vector<solution> game_state::work_out_all_solutions(game_state& given_state
 
 	while (!board_stack.empty())
 	{
-		bool still_require_this_state {false};
+		bool this_board_generated_a_solution {false};
+		bool must_examine_child_state {false};
 		auto& state_to_examine {board_stack.top()};
+
+		if (board_stack.size() > user_defined_max_solution_length)
+		{
+			state_to_examine.possible_moves.clear(); // and the horse you rode in on
+			// 
+		}
+
 		while (!state_to_examine.possible_moves.empty())
 		{
 			auto move_to_examine {state_to_examine.possible_moves.back()}; // arbitrarily choose the last one
@@ -536,7 +544,8 @@ std::vector<solution> game_state::work_out_all_solutions(game_state& given_state
 				possible_solution.pop_back(); // we're looking for all solutions, so take the winning move back off the list because we want to continue on our search.
 
 				// since this is a depth first search, if state_to_examine can generate any other solutions, they must be at least as long as this one or longer.
-				// we *could* just skip to the next board... (maybe later... for now, that would break the find_all_solutions tests which I'm currently using)
+				// we're going to examine the rest of this state's moves, for all solutions of equally short length, but we won't examine any further down the tree.
+				this_board_generated_a_solution = true;
 			}
 			else if (new_board.possible_moves.size() == 0)
 			{
@@ -565,11 +574,9 @@ std::vector<solution> game_state::work_out_all_solutions(game_state& given_state
 			}
 			else
 			{
-				if (possible_solution.size() >= 50) // no thank you sir
+				if (this_board_generated_a_solution)
 				{
-
-					// I am not interested in solutions this long
-					state_to_examine.possible_moves.clear(); // and the horse you rode in on
+					continue;
 				}
 				else
 				{
@@ -578,13 +585,13 @@ std::vector<solution> game_state::work_out_all_solutions(game_state& given_state
 
 					// if state_to_examine has no more moves (because we were the last examined), 
 					// we must be careful to not immediately pop the board we just pushed.
-					still_require_this_state = true;
+					must_examine_child_state = true;
 
 					break; // we stop examining the moves of this board and start examining the new board
 				}
 			}
 		}
-		if (state_to_examine.possible_moves.empty() && !still_require_this_state)
+		if (state_to_examine.possible_moves.empty() && !must_examine_child_state)
 		{
 			board_stack.pop();
 			if (!board_stack.empty())
