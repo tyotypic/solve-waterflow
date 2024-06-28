@@ -296,6 +296,26 @@ public:
 		}
 		return true;
 	}
+	bool is_single_colour()
+	{
+		colour first_colour {contents.front().colour};
+		if (first_colour == empty)
+		{
+			throw std::runtime_error("for this function, empty is not a colour");
+		}
+		for (const auto& piece : contents)
+		{
+			if (piece.colour == empty)
+			{
+				return true;
+			}
+			if (piece.colour != first_colour)
+			{
+				return false;
+			}
+		}
+		return true; // is_finished should be true here.
+	}
 };
 
 std::ostream& operator<<(std::ostream& out, const test_tube& tube)
@@ -357,6 +377,7 @@ private:
 	{
 		if (moves_have_been_generated)
 		{
+			// because we're removing moves from the collection when we examine them, we want to make sure we don't generate moves for a board we've fully examined.
 			throw std::runtime_error("moves have already been generated");
 		}
 
@@ -370,13 +391,22 @@ private:
 				{
 					is_finished = true;
 				}
+				continue;
+			}
 
+			if (potential_source.is_empty())
+			{
 				continue;
 			}
 
 			for (auto& potential_destination : test_tubes)
 			{
 				if (potential_source.tube_id == potential_destination.tube_id)
+				{
+					continue;
+				}
+
+				if (potential_source.is_single_colour() && potential_destination.is_empty())
 				{
 					continue;
 				}
@@ -468,6 +498,9 @@ bool game_state_has_already_been_examined(std::map<std::string, size_t>& examine
 
 std::vector<solution> game_state::work_out_all_solutions(game_state& given_state)
 {
+	constexpr size_t user_defined_max_solution_length {60};
+	size_t length_of_shortest_solution_so_far {user_defined_max_solution_length};
+
 	std::vector<solution> solutions;
 	std::vector<move> possible_solution;
 	std::map<std::string, size_t> examined_boards;
@@ -510,7 +543,7 @@ std::vector<solution> game_state::work_out_all_solutions(game_state& given_state
 				// this board has no possible moves, and it's not finished, it's a loser.
 				//possible_solution.pop_back(); // the move that got us here lead to a dead end.
 			}
-			else if (game_state_has_already_been_examined(examined_boards, new_board, possible_solution.size() + 1))
+			else if (game_state_has_already_been_examined(examined_boards, new_board, possible_solution.size() + 1)) // +1 for the size the solution would be if we included this move
 			{
 				// the problem here is that we might take a circuitous route to get to a state, when further along our examininations,
 				// we might have found a more direct route to the same state. This problem will be unnecessarily culling shorter solutions.
