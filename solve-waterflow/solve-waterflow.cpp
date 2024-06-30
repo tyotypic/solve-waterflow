@@ -138,7 +138,7 @@ public:
 	std::ostream& display(std::ostream& dest) const
 	{
 		dest << "{";
-		for (int i {0}; i < moves.size(); i++)
+		for (auto i {0}; i < moves.size(); i++)
 		{
 			dest << i + 1 << ": " << moves[i]; // easier to read them as 1 indexed
 			if (i != moves.size() - 1)
@@ -296,6 +296,26 @@ public:
 		}
 		return true;
 	}
+	bool is_single_colour()
+	{
+		colour first_colour {contents.front().colour};
+		if (first_colour == empty)
+		{
+			throw std::runtime_error("for this function, empty is not a colour");
+		}
+		for (const auto& piece : contents)
+		{
+			if (piece.colour == empty)
+			{
+				return true;
+			}
+			if (piece.colour != first_colour)
+			{
+				return false;
+			}
+		}
+		return true; // is_finished should be true here.
+	}
 };
 
 std::ostream& operator<<(std::ostream& out, const test_tube& tube)
@@ -357,6 +377,7 @@ private:
 	{
 		if (moves_have_been_generated)
 		{
+			// because we're removing moves from the collection when we examine them, we want to make sure we don't generate moves for a board we've fully examined.
 			throw std::runtime_error("moves have already been generated");
 		}
 
@@ -370,13 +391,22 @@ private:
 				{
 					is_finished = true;
 				}
+				continue;
+			}
 
+			if (potential_source.is_empty())
+			{
 				continue;
 			}
 
 			for (auto& potential_destination : test_tubes)
 			{
 				if (potential_source.tube_id == potential_destination.tube_id)
+				{
+					continue;
+				}
+
+				if (potential_source.is_single_colour() && potential_destination.is_empty())
 				{
 					continue;
 				}
@@ -468,6 +498,9 @@ bool game_state_has_already_been_examined(std::map<std::string, size_t>& examine
 
 std::vector<solution> game_state::work_out_all_solutions(game_state& given_state)
 {
+	constexpr size_t user_defined_max_solution_length {46};
+	size_t length_of_shortest_solution_so_far {user_defined_max_solution_length};
+
 	std::vector<solution> solutions;
 	std::vector<move> possible_solution;
 	std::map<std::string, size_t> examined_boards;
@@ -486,8 +519,16 @@ std::vector<solution> game_state::work_out_all_solutions(game_state& given_state
 
 	while (!board_stack.empty())
 	{
-		bool still_require_this_state {false};
+		bool this_board_generated_a_solution {false};
+		bool must_examine_child_state {false};
 		auto& state_to_examine {board_stack.top()};
+
+		if (board_stack.size() > user_defined_max_solution_length)
+		{
+			state_to_examine.possible_moves.clear(); // and the horse you rode in on
+			// 
+		}
+
 		while (!state_to_examine.possible_moves.empty())
 		{
 			auto move_to_examine {state_to_examine.possible_moves.back()}; // arbitrarily choose the last one
@@ -503,14 +544,15 @@ std::vector<solution> game_state::work_out_all_solutions(game_state& given_state
 				possible_solution.pop_back(); // we're looking for all solutions, so take the winning move back off the list because we want to continue on our search.
 
 				// since this is a depth first search, if state_to_examine can generate any other solutions, they must be at least as long as this one or longer.
-				// we *could* just skip to the next board... (maybe later... for now, that would break the find_all_solutions tests which I'm currently using)
+				// we're going to examine the rest of this state's moves, for all solutions of equally short length, but we won't examine any further down the tree.
+				this_board_generated_a_solution = true;
 			}
 			else if (new_board.possible_moves.size() == 0)
 			{
 				// this board has no possible moves, and it's not finished, it's a loser.
 				//possible_solution.pop_back(); // the move that got us here lead to a dead end.
 			}
-			else if (game_state_has_already_been_examined(examined_boards, new_board, possible_solution.size() + 1))
+			else if (game_state_has_already_been_examined(examined_boards, new_board, possible_solution.size() + 1)) // +1 for the size the solution would be if we included this move
 			{
 				// the problem here is that we might take a circuitous route to get to a state, when further along our examininations,
 				// we might have found a more direct route to the same state. This problem will be unnecessarily culling shorter solutions.
@@ -532,11 +574,9 @@ std::vector<solution> game_state::work_out_all_solutions(game_state& given_state
 			}
 			else
 			{
-				if (possible_solution.size() >= 50) // no thank you sir
+				if (this_board_generated_a_solution)
 				{
-
-					// I am not interested in solutions this long
-					state_to_examine.possible_moves.clear(); // and the horse you rode in on
+					continue;
 				}
 				else
 				{
@@ -545,13 +585,13 @@ std::vector<solution> game_state::work_out_all_solutions(game_state& given_state
 
 					// if state_to_examine has no more moves (because we were the last examined), 
 					// we must be careful to not immediately pop the board we just pushed.
-					still_require_this_state = true;
+					must_examine_child_state = true;
 
 					break; // we stop examining the moves of this board and start examining the new board
 				}
 			}
 		}
-		if (state_to_examine.possible_moves.empty() && !still_require_this_state)
+		if (state_to_examine.possible_moves.empty() && !must_examine_child_state)
 		{
 			board_stack.pop();
 			if (!board_stack.empty())
@@ -929,12 +969,12 @@ void test_work_out_all_solutions_3()
 
 	const solution solution_1 {{{1, 0, 2}}};
 	const solution solution_2 {{{0, 1, 1}}};
-	const solution solution_3 {{{0, 2, 2}, {1, 2, 1}}};
+	/*const solution solution_3 {{{0, 2, 2}, {1, 2, 1}}};
 	const solution solution_4 {{{1, 2, 1}, {0, 2, 2}}};
 	const solution solution_5 {{{0, 2, 2}, {1, 0, 1}, {0, 2, 1}}};
-	const solution solution_6 {{{0, 2, 2}, {1, 0, 1}, {2, 0, 2}}};
+	const solution solution_6 {{{0, 2, 2}, {1, 0, 1}, {2, 0, 2}}};*/
 
-	std::vector<solution> expected_solutions {solution_1, solution_2, solution_3, solution_4, solution_5, solution_6};
+	std::vector<solution> expected_solutions {solution_1, solution_2/*, solution_3, solution_4, solution_5, solution_6*/};
 	for (const auto& solution : solutions)
 	{
 		auto found_solution {std::find(solutions.begin(), solutions.end(), solution)};
@@ -1041,15 +1081,15 @@ void test_game_state_has_already_been_examined()
 
 int main()
 {
-	/*tests::test_get_colour_and_depth();
+	tests::test_get_colour_and_depth();
 	tests::test_pouring_colour();
 	tests::test_tube_display();
 	tests::test_generate_possible_moves();
 	tests::test_game_state_has_already_been_examined();
-	tests::test_work_out_all_solutions();*/
+	tests::test_work_out_all_solutions();
 
 	//tests::test_work_out_all_solutions_4();
 
-	do_the_thing();
+	//do_the_thing();
 	return 0;
 }
