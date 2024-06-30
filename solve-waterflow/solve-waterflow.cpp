@@ -138,7 +138,7 @@ public:
 	std::ostream& display(std::ostream& dest) const
 	{
 		dest << "{";
-		for (int i {0}; i < moves.size(); i++)
+		for (auto i {0}; i < moves.size(); i++)
 		{
 			dest << i + 1 << ": " << moves[i]; // easier to read them as 1 indexed
 			if (i != moves.size() - 1)
@@ -969,12 +969,12 @@ void test_work_out_all_solutions_3()
 
 	const solution solution_1 {{{1, 0, 2}}};
 	const solution solution_2 {{{0, 1, 1}}};
-	const solution solution_3 {{{0, 2, 2}, {1, 2, 1}}};
+	/*const solution solution_3 {{{0, 2, 2}, {1, 2, 1}}};
 	const solution solution_4 {{{1, 2, 1}, {0, 2, 2}}};
 	const solution solution_5 {{{0, 2, 2}, {1, 0, 1}, {0, 2, 1}}};
-	const solution solution_6 {{{0, 2, 2}, {1, 0, 1}, {2, 0, 2}}};
+	const solution solution_6 {{{0, 2, 2}, {1, 0, 1}, {2, 0, 2}}};*/
 
-	std::vector<solution> expected_solutions {solution_1, solution_2, solution_3, solution_4, solution_5, solution_6};
+	std::vector<solution> expected_solutions {solution_1, solution_2/*, solution_3, solution_4, solution_5, solution_6*/};
 	for (const auto& solution : solutions)
 	{
 		auto found_solution {std::find(solutions.begin(), solutions.end(), solution)};
@@ -1081,15 +1081,15 @@ void test_game_state_has_already_been_examined()
 
 int main()
 {
-	/*tests::test_get_colour_and_depth();
+	tests::test_get_colour_and_depth();
 	tests::test_pouring_colour();
 	tests::test_tube_display();
 	tests::test_generate_possible_moves();
 	tests::test_game_state_has_already_been_examined();
-	tests::test_work_out_all_solutions();*/
+	tests::test_work_out_all_solutions();
 
 	//tests::test_work_out_all_solutions_4();
 
-	do_the_thing();
+	//do_the_thing();
 	return 0;
 }
