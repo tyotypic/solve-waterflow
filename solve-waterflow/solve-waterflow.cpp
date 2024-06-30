@@ -515,8 +515,6 @@ std::vector<solution> game_state::work_out_all_solutions(game_state& given_state
 	static_cast<void>(game_state_has_already_been_examined(examined_boards, given_state, possible_solution.size()));
 	board_stack.push(given_state);
 
-	// todo 2: limit the max length of solution we're after, jeez
-
 	while (!board_stack.empty())
 	{
 		bool this_board_generated_a_solution {false};
