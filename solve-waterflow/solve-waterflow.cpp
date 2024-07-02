@@ -521,7 +521,8 @@ std::vector<solution> game_state::work_out_all_solutions(game_state& given_state
 		bool must_examine_child_state {false};
 		auto& state_to_examine {board_stack.top()};
 
-		if (board_stack.size() > user_defined_max_solution_length)
+		if (board_stack.size() > user_defined_max_solution_length ||
+			board_stack.size() > length_of_shortest_solution_so_far)
 		{
 			state_to_examine.possible_moves.clear(); // and the horse you rode in on
 			// 
@@ -538,6 +539,13 @@ std::vector<solution> game_state::work_out_all_solutions(game_state& given_state
 			if (new_board.is_finished)
 			{
 				possible_solution.push_back(move_to_examine); // add the move to get to the solution so we can copy it off
+
+				if (possible_solution.size() < length_of_shortest_solution_so_far)
+				{
+					solutions.clear(); // I don't care about the millions of slightly less efficient solutions. Just take the shortest or those equal to the shortest.
+					length_of_shortest_solution_so_far = possible_solution.size();
+				}
+
 				solutions.push_back(possible_solution);
 				possible_solution.pop_back(); // we're looking for all solutions, so take the winning move back off the list because we want to continue on our search.
 
@@ -637,10 +645,7 @@ void report_best_solution(std::vector<solution> solutions)
 	std::cout << best_solution;
 }
 
-void do_the_thing()
-{
-	game_state g
-	{{
+const game_state level_50 {{
 	{magenta, yellow, dark_green, orange},
 	{yellow, dark_blue, cream, dark_blue},
 	{light_blue, pink, dark_blue, light_green},
@@ -653,6 +658,10 @@ void do_the_thing()
 	{empty, empty, empty, empty},
 	{empty, empty, empty, empty}
 	}};
+
+void do_the_thing()
+{
+	game_state g {level_50};
 
 	auto solutions {game_state::work_out_all_solutions(g)};
 	if (solutions.empty())
