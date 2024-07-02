@@ -639,9 +639,9 @@ solution& work_out_best_solution(std::vector<solution>& solutions)
 
 void report_best_solution(std::vector<solution> solutions)
 {
-	auto& best_solution {work_out_best_solution(solutions)};
+	auto& best_solution {solutions.front()};
 
-	std::cout << "found " << solutions.size() << " solutions. The shortest is: " << std::endl;
+	std::cout << "found [" << solutions.size() << "] [" << best_solution.moves.size() << "] length solutions. One is: " << std::endl;
 	std::cout << best_solution;
 }
 
