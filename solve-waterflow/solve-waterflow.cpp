@@ -485,20 +485,12 @@ bool game_state_has_already_been_examined(std::map<std::string, size_t>& examine
 	}
 }
 
-// ok new plan
-// we're going to take all shortest solutions
-// 
-// - the stack size check needs to be when we start examining a state, and needs to not exclude states that are finished (just so we can get solutions of equal length)
-// - when we find a new shorter solution, we're going to delete all solutions longer than it (the solution list gets stupidly large)
-// - the has_been_examined check will now accept less than or equal to states, to accept duplicate equally short solutions -- actually scratch this, it's stupid
-// - once we find a solution, we'll examine the rest of its moves, but only to that next step, as any solutions generated from that point must be equal or greater than, and we only want those who are equal.
-// - we won't even examine moves that lead to a longer solution than the shortest solution we already have, we know this, because it's the size of the stack
-// I still have no idea how to limit the absolutely ludicrous size of the examined_boards collection. The new rules may help, but they aren't a guarantee.
-// Yes, I could encode the board differently, but then it would be difficult to read... But I'm pretty sure I saw 11 million entries the other day, which is stupid.
-
 std::vector<solution> game_state::work_out_all_solutions(game_state& given_state)
 {
-	constexpr size_t user_defined_max_solution_length {46};
+	// iterative depth-first search
+	// This will find and return all of the equal shortest solutions.
+
+	constexpr size_t user_defined_max_solution_length {100};
 	size_t length_of_shortest_solution_so_far {user_defined_max_solution_length};
 
 	std::vector<solution> solutions;
@@ -567,7 +559,7 @@ std::vector<solution> game_state::work_out_all_solutions(game_state& given_state
 
 				// I'm ok with not adding solved states to the collection of examined states, as we don't gain anything in doing so, 
 				// since we're not examining further down the tree once we've found a solution.
-				
+
 				// if we don't store the path length to a state with the state, when got to a state through a long path, 
 				// we'd neglect to examine that same state if we reached it through a shorter path, 
 				// denying ourselves the opportunity to consider a potentially shorter solution.
