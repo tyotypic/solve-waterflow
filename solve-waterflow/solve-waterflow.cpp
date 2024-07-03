@@ -521,8 +521,8 @@ std::vector<solution> game_state::work_out_all_solutions(game_state& given_state
 		bool must_examine_child_state {false};
 		auto& state_to_examine {board_stack.top()};
 
-		if (board_stack.size() >= user_defined_max_solution_length ||
-			board_stack.size() >= length_of_shortest_solution_so_far) //geq, not gt because there will always be one more state in the stack than moves in the potential solution, due to the initial state
+		if (board_stack.size() > user_defined_max_solution_length ||
+			board_stack.size() > length_of_shortest_solution_so_far) //gt, not geq because there will always be one more state in the stack than moves in the potential solution, due to the initial state
 		{
 			state_to_examine.possible_moves.clear(); // and the horse you rode in on
 			// just clear all moves as an easy way to say that we're done with this state. Then we fall nicely into the stack-popping section below the while.
@@ -970,12 +970,8 @@ void test_work_out_all_solutions_3()
 
 	const solution solution_1 {{{1, 0, 2}}};
 	const solution solution_2 {{{0, 1, 1}}};
-	/*const solution solution_3 {{{0, 2, 2}, {1, 2, 1}}};
-	const solution solution_4 {{{1, 2, 1}, {0, 2, 2}}};
-	const solution solution_5 {{{0, 2, 2}, {1, 0, 1}, {0, 2, 1}}};
-	const solution solution_6 {{{0, 2, 2}, {1, 0, 1}, {2, 0, 2}}};*/
 
-	std::vector<solution> expected_solutions {solution_1, solution_2/*, solution_3, solution_4, solution_5, solution_6*/};
+	std::vector<solution> expected_solutions {solution_1, solution_2};
 	for (const auto& solution : solutions)
 	{
 		auto found_solution {std::find(solutions.begin(), solutions.end(), solution)};
@@ -1006,9 +1002,14 @@ void test_work_out_all_solutions_4()
 
 	const solution solution_1 {{{2, 3, 2}, {0, 2, 1}, {1, 0, 1}, {1, 2, 1}, {0, 1, 2}, {0, 3, 1}}};
 	const solution solution_2 {{{2, 3, 2}, {0, 2, 1}, {1, 0, 1}, {1, 2, 1}, {0, 1, 2}, {3, 0, 2}}};
-	// i know there are more but I haven't looked yet
 
-	std::vector<solution> expected_solutions {solution_1, solution_2};
+	const solution solution_3 {{{1, 3, 1}, {0, 1, 1}, {0, 3, 1}, {2, 0, 2}, {1, 2, 2}, {3, 1, 2}}};
+	const solution solution_4 {{{1, 3, 1}, {0, 1, 1}, {0, 3, 1}, {2, 0, 2}, {1, 2, 2}, {1, 3, 1}}};
+
+	const solution solution_5 {{{0, 3, 1}, {1, 0, 1}, {1, 3, 1}, {0, 1, 2}, {2, 0, 2}, {3, 2, 2}}}; // lol, computer generated
+	const solution solution_6 {{{0, 3, 1}, {1, 0, 1}, {1, 3, 1}, {0, 1, 2}, {2, 0, 2}, {2, 3, 1}}}; // lol, computer generated
+
+	std::vector<solution> expected_solutions {solution_1, solution_2, solution_3, solution_4, solution_5, solution_6};
 	for (const auto& solution : solutions)
 	{
 		auto found_solution {std::find(solutions.begin(), solutions.end(), solution)};
@@ -1089,8 +1090,8 @@ int main()
 	tests::test_game_state_has_already_been_examined();
 	tests::test_work_out_all_solutions();
 
-	//tests::test_work_out_all_solutions_4();
+	//tests::test_work_out_all_solutions_3();
 
-	//do_the_thing();
+	do_the_thing();
 	return 0;
 }
