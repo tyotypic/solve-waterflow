@@ -664,8 +664,7 @@ void do_the_thing()
 	}
 	else
 	{
-		auto& solution {work_out_best_solution(solutions)};
-		std::cout << solution;
+		report_best_solution(solutions);
 	}
 	std::cout << std::endl;
 }
