@@ -542,7 +542,6 @@ std::vector<solution> game_state::work_out_all_solutions(game_state& given_state
 
 				if (possible_solution.size() < length_of_shortest_solution_so_far)
 				{
-					std::cout << "throwing out solutions of length [" << length_of_shortest_solution_so_far << "]" << std::endl;
 					solutions.clear(); // I don't care about the millions of slightly less efficient solutions. Just take the shortest or those equal to the shortest.
 					length_of_shortest_solution_so_far = possible_solution.size();
 				}
