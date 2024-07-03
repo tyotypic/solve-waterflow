@@ -521,11 +521,11 @@ std::vector<solution> game_state::work_out_all_solutions(game_state& given_state
 		bool must_examine_child_state {false};
 		auto& state_to_examine {board_stack.top()};
 
-		if (board_stack.size() > user_defined_max_solution_length ||
-			board_stack.size() > length_of_shortest_solution_so_far)
+		if (board_stack.size() >= user_defined_max_solution_length ||
+			board_stack.size() >= length_of_shortest_solution_so_far) //geq, not gt because there will always be one more state in the stack than moves in the potential solution, due to the initial state
 		{
 			state_to_examine.possible_moves.clear(); // and the horse you rode in on
-			// 
+			// just clear all moves as an easy way to say that we're done with this state. Then we fall nicely into the stack-popping section below the while.
 		}
 
 		while (!state_to_examine.possible_moves.empty())
@@ -542,6 +542,7 @@ std::vector<solution> game_state::work_out_all_solutions(game_state& given_state
 
 				if (possible_solution.size() < length_of_shortest_solution_so_far)
 				{
+					std::cout << "throwing out solutions of length [" << length_of_shortest_solution_so_far << "]" << std::endl;
 					solutions.clear(); // I don't care about the millions of slightly less efficient solutions. Just take the shortest or those equal to the shortest.
 					length_of_shortest_solution_so_far = possible_solution.size();
 				}
@@ -556,27 +557,21 @@ std::vector<solution> game_state::work_out_all_solutions(game_state& given_state
 			else if (new_board.possible_moves.size() == 0)
 			{
 				// this board has no possible moves, and it's not finished, it's a loser.
-				//possible_solution.pop_back(); // the move that got us here lead to a dead end.
 			}
 			else if (game_state_has_already_been_examined(examined_boards, new_board, possible_solution.size() + 1)) // +1 for the size the solution would be if we included this move
 			{
-				// the problem here is that we might take a circuitous route to get to a state, when further along our examininations,
-				// we might have found a more direct route to the same state. This problem will be unnecessarily culling shorter solutions.
-				// I can think of a couple of options here:
-				// 1. get rid of this check and let the max solution length check take care of situations where we cycle back to the same state,
-				// this seems unsatisfactory, or
-				// 2. maybe make a std::map<std::string, size_t> to hold both the examined state and the shortest route to it we've seen.
-				// then, if we have examined the state before but our current path to it is shorter, we can consider it.
-
-				// if we execute this check before checking whether the state is finished, 
-				// we exclude all solutions that end in a duplicate end state. That's bad because
-				// we would only record the first path to that end state, possibly missing shorter paths.
-
-				// if we execute this check after the check for 0 moves, we save ourselves the time of
-				// serialising the game_board and the memory of saving it away (which is larger than i expected).
 				// this check is really to stop us cycling endlessly between the same game states.
+				// It also stops us checking a state if we've already seen a shorter path to it.
 
-				//possible_solution.pop_back(); // this is not the droid we're looking for
+				// I'm ok with keeping this check after the check for 0 moves, because we're already not going to examine this state further, 
+				// so we don't gain anything in adding it to the examined_boards collection.
+
+				// I'm ok with not adding solved states to the collection of examined states, as we don't gain anything in doing so, 
+				// since we're not examining further down the tree once we've found a solution.
+				
+				// if we don't store the path length to a state with the state, when got to a state through a long path, 
+				// we'd neglect to examine that same state if we reached it through a shorter path, 
+				// denying ourselves the opportunity to consider a potentially shorter solution.
 			}
 			else
 			{
